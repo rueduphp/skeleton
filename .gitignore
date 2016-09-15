@@ -1,1 +1,5 @@
 /vendor/
+/node_modules
+/app/storage
+/.idea
+composer.lock
