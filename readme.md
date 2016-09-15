@@ -14,4 +14,4 @@ If you discover a security vulnerability within Octo, please send an e-mail to G
 
 ## License
 
-The Octo framework sheleton is open-sourced software licensed under the [MIT license](http://opensource.org/licenses/MIT).
+The Octo framework skeleton is open-sourced software licensed under the [MIT license](http://opensource.org/licenses/MIT).
