@@ -1,0 +1,28 @@
+{
+    "name": "rueduphp/skeleton",
+    "description": "Rue du PHP skeleton",
+    "keywords": ["php", "framework", "rueduphp"],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+    {
+        "name": "Gérald Plusquellec",
+        "email": "gplusquellec@rueduphp.com",
+        "homepage": "http://www.rueduphp.com",
+        "role": "Developer"
+    }
+    ],
+    "config": {
+        "preferred-install": "dist"
+    },
+    "require": {
+        "php": ">=7.0",
+        "rueduphp/octo": "dev-master"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    },
+    "minimum-stability": "dev"
+}
