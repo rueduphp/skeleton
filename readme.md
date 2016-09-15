@@ -8,6 +8,13 @@ utility class for different scopes.
 
 composer create-project ruduphp/skeleton myproject
 
+Please chmod 0777 these directories
+- app/models
+- app/storage
+- app/storage/data
+- app/storage/cache
+- app/storage/tmp
+
 ## Security Vulnerabilities
 
 If you discover a security vulnerability within Octo, please send an e-mail to Gérald Plusquellec at gplusquellec@rueduphp.com. All security vulnerabilities will be promptly addressed.
