@@ -24,5 +24,15 @@
             "App\\": "app/"
         }
     },
+    "scripts": {
+        "post-install-cmd": [
+            "chmod 0777 -R app/storage",
+            "chmod 0777 -R app/models"
+        ],
+        "post-update-cmd": [
+            "chmod 0777 -R app/storage",
+            "chmod 0777 -R app/models"
+        ]
+    },
     "minimum-stability": "dev"
 }

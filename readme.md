@@ -6,14 +6,7 @@ utility class for different scopes.
 
 ## Install
 
-composer create-project ruduphp/skeleton myproject
-
-Please chmod 0777 these directories
-- app/models
-- app/storage
-- app/storage/data
-- app/storage/cache
-- app/storage/tmp
+composer create-project ruduphp/skeleton /var/www/myproject
 
 ## Security Vulnerabilities
 
