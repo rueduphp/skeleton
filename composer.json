@@ -17,7 +17,7 @@
     },
     "require": {
         "php": ">=7.0",
-        "rueduphp/octo": "dev-master"
+        "rueduphp/octo": "*"
     },
     "autoload": {
         "psr-4": {
