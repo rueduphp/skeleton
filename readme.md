@@ -6,7 +6,7 @@ utility class for different scopes.
 
 ## Install
 
-composer create-project ruduphp/skeleton /var/www/myproject
+composer create-project rueduphp/skeleton /var/www/myproject
 
 ## Security Vulnerabilities
 
