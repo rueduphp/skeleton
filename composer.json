@@ -17,7 +17,7 @@
     },
     "require": {
         "php": ">=7.0",
-        "rueduphp/octo": ">= 1.0.1"
+        "rueduphp/octo": ">= 1.0.2"
     },
     "autoload": {
         "psr-4": {
