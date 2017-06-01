@@ -3,6 +3,8 @@
 
     use Octo\ControllerBase;
     use Octo\Registry;
+    use Octo\Octo;
+
     use function Octo\vue;
 
     class AppStaticController extends ControllerBase
