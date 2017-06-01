@@ -1,48 +1,52 @@
 <?php
     namespace App;
 
+    use Octo\Registry;
     use Octo\Config as CoreConf;
+    use function Octo\path;
 
-    CoreConf::set('application.name', 'Octo');
-    CoreConf::set('application.dir', realpath(__DIR__ . '/../'));
-    CoreConf::set('model.dir', realpath(__DIR__ . '/../models'));
+    $d = __DIR__;
 
-    CoreConf::set('octalia.dir', realpath(__DIR__ . '/../storage/data'));
-    CoreConf::set('dir.cache', realpath(__DIR__ . '/../storage/cache'));
+    CoreConf::set('application.name',       defined('SITE_NAME') ? SITE_NAME : 'Octo');
+    CoreConf::set('application.dir',        realpath($d . '/../'));
+    CoreConf::set('model.dir',              realpath($d . '/../models'));
+
+    CoreConf::set('octalia.dir',            realpath($d . '/../storage/data'));
+    CoreConf::set('dir.cache',              realpath($d . '/../storage/cache'));
 
     /* MySQL */
-    CoreConf::set('mysql.username', 'octo');
-    CoreConf::set('mysql.password', 'octo');
+    CoreConf::set('mysql.username',         'homestead');
+    CoreConf::set('mysql.password',         'homestead');
 
     /* Mailer */
-    CoreConf::set('mailer.driver', 'smtp');
-    CoreConf::set('mailer.host', 'mailtrap.io');
-    CoreConf::set('mailer.port', 2525);
-    CoreConf::set('mailer.username', '');
-    CoreConf::set('mailer.password', '');
-    CoreConf::set('mailer.secure', 'tls');
-    CoreConf::set('mailer.timeout', 20);
-    CoreConf::set('mailer.persistent', null);
+    CoreConf::set('mailer.driver',          'smtp');
+    CoreConf::set('mailer.host',            'mailtrap.io');
+    CoreConf::set('mailer.port',            2525);
+    CoreConf::set('mailer.username',        '');
+    CoreConf::set('mailer.password',        '');
+    CoreConf::set('mailer.secure',          'tls');
+    CoreConf::set('mailer.timeout',         20);
+    CoreConf::set('mailer.persistent',      null);
 
-    CoreConf::set('notification.driver', 'mail');
+    CoreConf::set('notification.driver',    'mail');
 
-    \Octo\path('config',          realpath(__DIR__));
-    \Octo\path('app',             realpath(__DIR__ . '/../'));
-    \Octo\path('tasks',           realpath(__DIR__ . '/../tasks'));
-    \Octo\path('tests',           realpath(__DIR__ . '/../tests'));
-    \Octo\path('models',          realpath(__DIR__ . '/../models'));
-    \Octo\path('views',           realpath(__DIR__ . '/../views'));
-    \Octo\path('controllers',     realpath(__DIR__ . '/../controllers'));
-    \Octo\path('translations',    realpath(__DIR__ . '/../translations'));
-    \Octo\path('storage',         realpath(__DIR__ . '/../storage'));
-    \Octo\path('public',          realpath(__DIR__ . '/../../public'));
+    path('config',          realpath($d));
+    path('app',             realpath($d . '/../'));
+    path('tasks',           realpath($d . '/../tasks'));
+    path('tests',           realpath($d . '/../tests'));
+    path('models',          realpath($d . '/../models'));
+    path('views',           realpath($d . '/../views'));
+    path('controllers',     realpath($d . '/../controllers'));
+    path('translations',    realpath($d . '/../translations'));
+    path('storage',         realpath($d . '/../storage'));
+    path('public',          realpath($d . '/../../public'));
 
-    \Octo\path('octalia',         CoreConf::get('octalia.dir', session_save_path()));
-    \Octo\path('cache',           CoreConf::get('dir.cache', session_save_path()));
+    path('octalia',         CoreConf::get('octalia.dir', session_save_path()));
+    path('cache',           CoreConf::get('dir.cache', session_save_path()));
 
-    \Octo\Registry::set('cb.404', function () {
+    Registry::set('cb.404', function () {
         if (!headers_sent()) {
             header($_SERVER['SERVER_PROTOCOL'] . ' 404 Not Found');
-            header('Location:' . \Octo\Registry::get('octo.subdir', '') . '/is404');
+            header('Location:' . Registry::get('octo.subdir', '') . '/is404');
         }
     });

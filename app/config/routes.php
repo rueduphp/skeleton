@@ -1,6 +1,7 @@
 <?php
     namespace App;
 
-    use Octo\Route;
+    use Octo\Route      as Routing;
+    use UserEntity      as User;
 
-    Route::get('/', "static#home");
+    Routing::get('/', "static@home")->as('home');
