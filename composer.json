@@ -27,7 +27,6 @@
     },
     "autoload": {
         "classmap": [
-            "app/classes",
             "app/tasks",
             "app/tests",
             "app/entities"
