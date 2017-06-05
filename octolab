@@ -46,4 +46,8 @@
         }
     }
 
-    new Octolabs($argv);
+    if (count($argv) > 1) {
+        new Octolabs($argv);
+    } else {
+        Cli::show("Octolab requires an action", 'ERROR');
+    }
