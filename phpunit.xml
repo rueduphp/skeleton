@@ -20,5 +20,6 @@
     </filter>
     <php>
         <env name="APPLICATION_ENV" value="testing"/>
+        <env name="APPLICATION_URL" value="http://www.rueduphp.com"/>
     </php>
 </phpunit>

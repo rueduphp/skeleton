@@ -19,35 +19,7 @@
 
     systemBoot(__DIR__);
 
-    try {
-        Octo::cli();
-    } catch (\Exception $e) {
-        $debug = Config::get("debug", true);
-
-        if (true === $debug) {
-            ob_start();
-            echo '<h1><i class="fa fa-info-circle fa-2x"></i> Infos</h1>';
-            $infos = Registry::get('BACKTRACE', $e->getTrace());
-            echo '<pre>';
-            var_dump($infos);
-            echo '</pre>';
-
-            $trace = ob_get_clean();
-
-            $html = '<h1><i class="fa fa-warning fa-2x"></i> Error to boot Octo</h1>';
-            $html .= 'Please read the next message to fix.';
-            $html .= '<div style="margin-top: 15px;" class="alert alert-danger">
-            ' . $e->getMessage();
-
-            if (!Registry::has('BACKTRACE')) {
-                $html .= '<hr>in ' . $e->getFile() . ' (line: ' . $e->getLine() . ')';
-            }
-
-            $html .= '</div><hr>' . $trace . '';
-
-            view($html, 500, 'Octo Error Report');
-        }
-    }
+    Octo::cli();
 
     $config = new Configuration([
         'updateCheck' => 'never'
