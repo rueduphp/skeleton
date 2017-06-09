@@ -5,7 +5,7 @@
         {
             $db = $this->em('city');
 
-            $db->store(['name' => 'Paris']);
+            $db->persist(['name' => 'Paris']);
 
             return $this->assertEquals(1, $db->count());
         }
