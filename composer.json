@@ -4,14 +4,12 @@
     "keywords": ["php", "framework", "rueduphp"],
     "type": "library",
     "license": "MIT",
-    "authors": [
-    {
+    "authors": [{
         "name": "Gérald Plusquellec",
         "email": "gplusquellec@rueduphp.com",
         "homepage": "http://www.rueduphp.com",
         "role": "Developer"
-    }
-    ],
+    }],
     "config": {
         "preferred-install": "dist"
     },
@@ -23,7 +21,7 @@
         "intervention/imagecache": "^2.3",
         "league/flysystem": "^1.0",
         "league/flysystem-aws-s3-v3": "^1.0",
-        "illuminate/redis": "^5.4"
+        "illuminate/redis": "@stable"
     },
     "require-dev": {
         "phpunit/phpunit": "@stable"
@@ -31,7 +29,6 @@
     "autoload": {
         "classmap": [
             "app/tasks",
-            "app/tests",
             "app/entities"
         ],
         "psr-4": {
