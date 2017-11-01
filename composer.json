@@ -21,7 +21,8 @@
         "intervention/imagecache": "^2.3",
         "league/flysystem": "^1.0",
         "league/flysystem-aws-s3-v3": "^1.0",
-        "illuminate/redis": "@stable"
+        "illuminate/redis": "@stable",
+        "http-interop/http-middleware": "^0.5.0"
     },
     "require-dev": {
         "phpunit/phpunit": "@stable"
