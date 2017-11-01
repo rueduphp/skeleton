@@ -16,7 +16,7 @@
     "require": {
         "php": ">=7.0",
         "illuminate/console": "@stable",
-        "rueduphp/octo": "^1",
+        "rueduphp/octo": "^2",
         "intervention/image": "^2.3",
         "intervention/imagecache": "^2.3",
         "league/flysystem": "^1.0",
