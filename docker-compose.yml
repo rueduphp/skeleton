@@ -1,0 +1,35 @@
+version: '2.1'
+services:
+  rdp:
+    # image: php:7.1-apache
+    build: .
+    ports:
+      - "88:80"
+    volumes:
+      - .:/var/www
+    environment:
+      - "MYSQL_ROOT_PASSWORD=root"
+      - "MYSQL_DATABASE=octo"
+      - "MYSQL_USER=octo"
+      - "MYSQL_PASSWORD=octo"
+    links:
+      - mysql
+      - redis
+
+  mysql:
+    image: mysql:5.7
+    volumes:
+      - ./data:/var/lib/mysql
+    environment:
+      - "MYSQL_ROOT_PASSWORD=root"
+      - "MYSQL_DATABASE=octo"
+      - "MYSQL_USER=octo"
+      - "MYSQL_PASSWORD=octo"
+    ports:
+      - "3366:3306"
+
+  redis:
+    image: redis:4.0-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6377:6379"
