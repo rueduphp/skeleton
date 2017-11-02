@@ -1,10 +1,7 @@
 version: '2.1'
 services:
   rdp:
-    # image: php:7.1-apache
     build: .
-    ports:
-      - "88:80"
     volumes:
       - .:/var/www
     environment:
