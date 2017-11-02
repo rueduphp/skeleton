@@ -16,7 +16,7 @@
     "repositories": [{
         "type": "vcs",
         "url": "https://github.com/rueduphp/octo.git"
-    ]},
+    }],
     "require": {
         "php": ">=7.0"
     },
