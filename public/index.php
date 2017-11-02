@@ -51,4 +51,6 @@
         view($html, 500, 'Octo Error Report');
     }
 
-    Octo::run();
+    Octo::deploy(function () {
+        die('WELCOME');
+    });
