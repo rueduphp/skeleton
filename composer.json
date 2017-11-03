@@ -21,10 +21,6 @@
         "phpunit/phpunit": "@stable"
     },
     "autoload": {
-        "classmap": [
-            "app/tasks",
-            "app/entities"
-        ],
         "psr-4": {
           "App\\": "app/"
         }

@@ -59,5 +59,7 @@ RUN cd ~; git clone https://github.com/phalcon/cphalcon -b master --single-branc
 &&  rm -rf /tmp/pear \
 &&  docker-php-ext-enable phalcon
 
+RUN npm install -g forever maildev nodemon
+
 VOLUME  /var/www
 WORKDIR /var/www

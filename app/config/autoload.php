@@ -1,5 +1,0 @@
-<?php
-    return [
-        'aliases' => [],
-        'mapped' => []
-    ];

@@ -12,4 +12,3 @@
     Octo::init($dir);
 
     Octo::apply(new Bootstrap());
-//    Octo::apply(instanciator()->singleton(Bootstrap::class));

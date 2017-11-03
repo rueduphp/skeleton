@@ -5,7 +5,10 @@ services:
     volumes:
       - .:/var/www
     environment:
+      - "REDIS_HOST=redis"
       - "MYSQL_ROOT_PASSWORD=root"
+      - "MYSQL_HOST=mysql"
+      - "MYSQL_PORT=3306"
       - "MYSQL_DATABASE=octo"
       - "MYSQL_USER=octo"
       - "MYSQL_PASSWORD=octo"
