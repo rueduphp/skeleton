@@ -59,4 +59,5 @@ RUN cd ~; git clone https://github.com/phalcon/cphalcon -b master --single-branc
 &&  rm -rf /tmp/pear \
 &&  docker-php-ext-enable phalcon
 
+VOLUME  /var/www
 WORKDIR /var/www
