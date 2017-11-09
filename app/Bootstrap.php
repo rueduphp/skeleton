@@ -58,6 +58,16 @@ class Bootstrap
         $this->app->render($response);
     }
 
+    public function cli(Fast $app)
+    {
+        $this->app = $app;
+
+        $this
+            ->config()
+            ->register()
+        ;
+    }
+
     /**
      * @return Fast
      */

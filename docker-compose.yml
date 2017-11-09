@@ -1,6 +1,6 @@
 version: '2.1'
 services:
-  rdp:
+  app:
     build: .
     volumes:
       - .:/var/www
@@ -12,6 +12,16 @@ services:
       - "MYSQL_DATABASE=octo"
       - "MYSQL_USER=octo"
       - "MYSQL_PASSWORD=octo"
+      - "APPLICATION_ENV=development"
+      - "APPLICATION_URL=http://www.rueduphp.com"
+      - "SITE_NAME=rueduphp"
+      - "MAILER_DRIVER=smtp"
+      - "SMTP_HOST=mailtrap.io"
+      - "SMTP_PORT=2525"
+      - "SMTP_SECURITY=null"
+      - "SMTP_USER=null"
+      - "SMTP_PASSWORD=null"
+      - "SENDMAIL_PATH=/usr/lib/sendmail"
     links:
       - mysql
       - redis

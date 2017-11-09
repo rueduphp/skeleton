@@ -11,7 +11,7 @@ RUN curl -sL https://deb.nodesource.com/setup_9.x | sudo -E bash -
 RUN sudo apt-get install -y nodejs
 
 RUN apt-get update \
- && apt-get install -y git nano lftp axel git zlib1g-dev libmcrypt-dev libssl-dev libfreetype6-dev \
+ && apt-get install -y zip unzip git supervisor sqlite3 nano lftp axel zlib1g-dev libmcrypt-dev libssl-dev libfreetype6-dev \
  && apt-get install -y libjpeg62-turbo-dev libpng12-dev g++ libicu-dev php \
  && docker-php-ext-install zip \
  && docker-php-ext-install opcache \
@@ -20,7 +20,7 @@ RUN apt-get update \
  && docker-php-ext-install gd \
  && docker-php-ext-install pdo_mysql
 
- RUN apt-get install -y libmemcached-dev \
+RUN apt-get install -y libmemcached-dev \
     && curl -L -o /tmp/memcached.tar.gz "https://github.com/php-memcached-dev/php-memcached/archive/php7.tar.gz" \
     && mkdir -p /usr/src/php/ext/memcached \
     && tar -C /usr/src/php/ext/memcached -zxvf /tmp/memcached.tar.gz --strip 1 \
@@ -54,12 +54,11 @@ RUN a2enmod actions rewrite \
 RUN curl -sS https://getcomposer.org/installer \
   | php -- --install-dir=/usr/local/bin --filename=composer
 
-
 RUN cd ~; git clone https://github.com/phalcon/cphalcon -b master --single-branch; cd ~/cphalcon/build; ./install; rm -rf ~/cphalcon \
 &&  rm -rf /tmp/pear \
 &&  docker-php-ext-enable phalcon
 
-RUN npm install -g forever maildev nodemon
+RUN npm install -g socket.io sass yarn gulp bower forever maildev nodemon
 
 VOLUME  /var/www
 WORKDIR /var/www
