@@ -1,7 +1,7 @@
 FROM php:7.1-apache
 
 RUN apt-get update \
-&& apt-get install -y wget curl vim python-software-properties software-properties-common
+&& apt-get install -y libcurl4-openssl-dev libedit-dev libsqlite3-dev libssl-dev libxml2-devwget curl vim python-software-properties software-properties-common
 
 RUN apt-get install -y imagemagick sudo apt-transport-https lsb-release ca-certificates
 RUN wget -O /etc/apt/trusted.gpg.d/php.gpg https://packages.sury.org/php/apt.gpg
@@ -11,7 +11,7 @@ RUN curl -sL https://deb.nodesource.com/setup_9.x | sudo -E bash -
 RUN sudo apt-get install -y nodejs
 
 RUN apt-get update \
- && apt-get install -y zip unzip git supervisor sqlite3 nano lftp axel zlib1g-dev libmcrypt-dev libssl-dev libfreetype6-dev \
+ && apt-get install -y zip unzip git supervisor sqlite3 nano lftp axel zlib1g-dev libmcrypt-dev libfreetype6-dev \
  && apt-get install -y libjpeg62-turbo-dev libpng12-dev g++ libicu-dev php \
  && docker-php-ext-install zip \
  && docker-php-ext-install opcache \
