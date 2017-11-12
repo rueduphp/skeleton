@@ -5,7 +5,7 @@
     $password   = getenv('MYSQL_ROOT_PASSWORD');
 
     $options = [
-        PDO::ATTR_ERRMODE              => PDO::ERRMODE_EXCEPTION
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
     ];
 
     $pdo = new PDO(

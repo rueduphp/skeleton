@@ -1,0 +1,379 @@
+#!/usr/bin/env php
+<?php
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\Builder;
+use function Octo\systemBoot;
+
+ini_set('error_reporting', E_ALL);
+ini_set('display_errors', true);
+
+$ini = parse_ini_file(__DIR__ . '/.env');
+
+defined('APPLICATION_ENV') || define('APPLICATION_ENV', isset($ini['APPLICATION_ENV']) ? $ini['APPLICATION_ENV'] : 'production');
+defined('SITE_NAME') || define('SITE_NAME', isset($ini['SITE_NAME']) ? $ini['SITE_NAME']         : 'project');
+
+require_once realpath(__DIR__) . '/vendor/autoload.php';
+
+path("app", realpath(__DIR__ . '/app'));
+path("base", realpath(__DIR__));
+
+call_user_func(function () use ($argv) {
+    systemBoot(__DIR__);
+    Octo\Octo::cli();
+
+    if (count($argv) > 1) {
+        array_shift($argv);
+
+        try {
+            new Migrator(__DIR__ . '/app/databases/migrations', $argv);
+        } catch (Exception $e) {
+            dd($e);
+        }
+    } else {
+        Octo\Cli::show("Plesa provide an action ['create', 'update', 'migrate', 'rollback']", 'ERROR');
+    }
+});
+
+class Migrator
+{
+    /**
+     * @var string
+     */
+    private $path;
+
+    /**
+     * @var string
+     */
+    private $table = "octo_migration";
+
+    /**
+     * @var PDO
+     */
+    private $pdo;
+
+    /**
+     * @var \Octo\Orm
+     */
+    private $orm;
+
+    /**
+     * @var Builder
+     */
+    private $schema;
+
+    public function __construct($path, array $args)
+    {
+        $this->path = $path;
+
+        $this->setup();
+
+        if (!$this->hasTable()) {
+            $this->createRepository();
+        }
+
+        $this->run($args);
+    }
+
+    private function drop()
+    {
+        $tables = $this->query("SHOW TABLES")->fetchAll();
+
+        foreach ($tables as $row) {
+            $table = $row[0];
+
+            if ($table !== $this->table) {
+                $sql = "DROP TABLE $table";
+            } else {
+                $sql = "TRUNCATE TABLE $table";
+            }
+
+            $this->exec($sql);
+        }
+
+        $this->show('All tables have been dropped.');
+    }
+
+    private function run($args)
+    {
+        $action = array_shift($args);
+
+        $this->{$action}(...$args);
+    }
+
+    private function getKey()
+    {
+        $time = microtime();
+        list($micro, $timestamp) = explode(' ', $time);
+        list($dummy, $micro) = explode('.', $micro);
+
+        return substr($timestamp . $micro, 0, -4);
+    }
+
+    private function rollback()
+    {
+        $query = "SELECT batch FROM {$this->table} ORDER BY batch DESC LIMIT 1";
+        $batch = $this->query($query)->fetchColumn();
+        $files = glob($this->getPath() . DS . "*{$batch}*.php");
+
+        if (count($files) === 1) {
+            $file = array_shift($files);
+            $path = str_replace('.php', '', pathinfo($file, PATHINFO_BASENAME));
+            $class = Octo\Inflector::camelize($path);
+            $batch = (int) $batch;
+
+            require_once $file;
+
+            $instance = new $class;
+
+            Octo\callMethod($instance, 'down', $this->getSchema());
+
+            $query = "DELETE FROM {$this->table} WHERE batch = $batch";
+            $this->exec($query);
+
+            $this->show("Class {$class} has been rollbacked.");
+        } else {
+            $this->show("No migration to rollback.");
+        }
+    }
+
+    /**
+     * @param string $msg
+     * @param string $type
+     */
+    private function show($msg, $type = 'INFO')
+    {
+        Octo\Cli::show($msg, $type);
+    }
+
+    private function migrate()
+    {
+        $files = glob($this->getPath() . DS . "*.php");
+
+        if (empty($files)) {
+            $this->show("No migration to migrate.");
+        } else {
+            $proceed = false;
+
+            foreach ($files as $file) {
+                $path = str_replace('.php', '', pathinfo($file, PATHINFO_BASENAME));
+                $class = Octo\Inflector::camelize($path);
+                list($action, $name, $batch) = explode('_', $path, 3);
+                $batch = (int) $batch;
+                $query = "SELECT COUNT(id) FROM {$this->table} WHERE batch = $batch";
+                $res = $this->query($query)->fetchColumn();
+
+                if (0 == $res) {
+                    $query = "INSERT INTO {$this->table} (migration, batch) VALUES ('{$action}_{$name}', $batch)";
+                    $this->exec($query);
+
+                    require_once $file;
+
+                    $instance = new $class;
+
+                    Octo\callMethod($instance, 'up', $this->getSchema());
+
+                    $this->show("Class {$class} has been migrated.");
+
+                    $proceed = true;
+                }
+            }
+
+            if (false === $proceed) {
+                $this->show("No migration to migrate.");
+            }
+        }
+    }
+
+    private function create($name)
+    {
+        $key = $this->getKey();
+
+        $name = Octo\Inflector::slug($name, '_');
+
+        $path = 'create_' . $name . '_' . $key;
+
+        $class = Octo\Inflector::camelize($path);
+
+        $stub = $this->getStub('create', $class);
+
+        $file = $this->getPath() . DS . $path . '.php';
+
+        if (!file_exists($file)) {
+            Octo\File::put($file, $stub);
+            $this->show("Class {$class} has been created.");
+        } else {
+            $this->show("Class {$class} ever exists.", 'ERROR');
+        }
+    }
+
+    private function update($name)
+    {
+        $key = $this->getKey();
+
+        $name = Octo\Inflector::slug($name, '_');
+
+        $path = 'update_' . $name . '_' . $key;
+
+        $class = Octo\Inflector::camelize($path);
+
+        $stub = $this->getStub('update', $class);
+
+        $file = $this->getPath() . DS . $path . '.php';
+
+        if (!file_exists($file)) {
+            Octo\File::put($file, $stub);
+            $this->show("Class {$class} has been created.");
+        } else {
+            $this->show("Class {$class} ever exists.", 'ERROR');
+        }
+    }
+
+    /**
+     * @param null $table
+     * @return bool
+     */
+    private function hasTable($table = null)
+    {
+        $table = is_null($table) ? $this->table : $table;
+
+        $query = "SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_name = '{$table}'";
+
+        $res = (int) $this->query($query)->fetchColumn();
+
+        return $res > 0;
+    }
+
+    private function setup()
+    {
+        $host       = getenv('MYSQL_HOST');
+        $port       = getenv('MYSQL_PORT');
+        $database   = getenv('MYSQL_DATABASE');
+        $password   = getenv('MYSQL_ROOT_PASSWORD');
+
+        $options = [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+        ];
+
+        $this->pdo = new PDO(
+            "mysql:host=$host;port=$port;dbname=" .
+            $database,
+            'root',
+            $password,
+            $options
+        );
+
+        $this->orm = new \Octo\Orm($this->pdo);
+
+        $this->schema = $this->orm->schema();
+    }
+
+    private function createRepository()
+    {
+        $schema = $this->getSchema();
+
+        $schema->create($this->table, function (Blueprint $table) {
+            $table->increments('id');
+            $table->string('migration');
+            $table->bigInteger('batch');
+        });
+    }
+
+    /**
+     * @return Builder
+     */
+    public function getSchema()
+    {
+        return $this->schema;
+    }
+
+    /**
+     * @return string
+     */
+    public function getPath()
+    {
+        return $this->path;
+    }
+
+    /**
+     * @return PDO
+     */
+    public function getPdo()
+    {
+        return $this->pdo;
+    }
+
+    /**
+     * @return \Octo\Orm
+     */
+    public function getOrm()
+    {
+        return $this->orm;
+    }
+
+    /**
+     * @param string $type
+     * @param string $class
+     *
+     * @return string
+     */
+    private function getStub($type, $class)
+    {
+        $stubs = [
+            'create' => '<?php
+class '. $class .'
+{
+    public function up($schema)
+    {
+        $schema->create(\'\', function ($table) {
+            $table->increments(\'id\');
+            $table->timestamps();
+        });
+    }
+    
+    public function down($schema)
+    {
+        $schema->dropIfExists(\'\');
+    }
+}',
+            'update' => '<?php
+class '. $class .'
+{
+    public function up($schema)
+    {
+        $schema->table(\'\', function ($table) {
+            //
+        });
+    }
+    
+    public function down($schema)
+    {
+        $schema->table(\'\', function ($table) {
+            //
+        });
+    }
+}'
+        ];
+
+        return $stubs[$type];
+    }
+
+    /**
+     * @param $sql
+     *
+     * @return PDOStatement
+     */
+    private function query($sql)
+    {
+        return $this->getPdo()->query($sql);
+    }
+
+    /**
+     * @param $sql
+     *
+     * @return int
+     */
+    private function exec($sql)
+    {
+        return $this->getPdo()->exec($sql);
+    }
+}

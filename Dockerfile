@@ -1,7 +1,7 @@
 FROM php:7.1-apache
 
 RUN apt-get update \
-&& apt-get install -y libcurl4-openssl-dev libedit-dev libsqlite3-dev libssl-dev libxml2-devwget curl vim python-software-properties software-properties-common
+&& apt-get install -y libcurl4-openssl-dev libedit-dev libsqlite3-dev libssl-dev libxml2-dev wget curl vim python-software-properties software-properties-common
 
 RUN apt-get install -y imagemagick sudo apt-transport-https lsb-release ca-certificates
 RUN wget -O /etc/apt/trusted.gpg.d/php.gpg https://packages.sury.org/php/apt.gpg
@@ -31,7 +31,6 @@ RUN apt-get install -y libmemcached-dev \
 RUN apt-get update && apt-get install -y \
         libjpeg62-turbo-dev \
         libpq-dev \
-        libxml2-dev \
         libmagickwand-dev --no-install-recommends
 RUN pecl install imagick && docker-php-ext-enable imagick
 
