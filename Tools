@@ -1,0 +1,599 @@
+#!/usr/bin/env php
+<?php
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\Builder;
+use function Octo\faker;
+use function Octo\systemBoot;
+
+ini_set('error_reporting', E_ALL);
+ini_set('display_errors', true);
+
+$ini = parse_ini_file(__DIR__ . '/.env');
+
+defined('APPLICATION_ENV') || define('APPLICATION_ENV', isset($ini['APPLICATION_ENV']) ? $ini['APPLICATION_ENV'] : 'production');
+defined('SITE_NAME') || define('SITE_NAME', isset($ini['SITE_NAME']) ? $ini['SITE_NAME']         : 'project');
+
+require_once realpath(__DIR__) . '/vendor/autoload.php';
+
+path("app", realpath(__DIR__ . '/app'));
+path("base", realpath(__DIR__));
+
+call_user_func(function () use ($argv) {
+    systemBoot(__DIR__);
+    Octo\Octo::cli();
+
+    if (count($argv) > 1) {
+        array_shift($argv);
+
+        try {
+            new Tools(__DIR__ . '/app/databases', $argv);
+        } catch (Exception $e) {
+            dd($e);
+        }
+    } else {
+        Octo\Cli::show("Please provide an action", 'ERROR');
+    }
+});
+
+class Tools
+{
+    /**
+     * @var string
+     */
+    private $path_migrations;
+
+    /**
+     * @var string
+     */
+    private $path_seeds;
+
+    /**
+     * @var string
+     */
+    private $table_migrations = "octo_migration";
+
+    /**
+     * @var string
+     */
+    private $table_seeds = "octo_seed";
+
+    /**
+     * @var PDO
+     */
+    private $pdo;
+
+    /**
+     * @var \Octo\Orm
+     */
+    private $orm;
+
+    /**
+     * @var Builder
+     */
+    private $schema;
+
+    public function __construct($path, array $args)
+    {
+        $this->path_migrations = $path . '/migrations';
+        $this->path_seeds = $path . '/seeds';
+
+        $this->setup();
+
+        if (!$this->hasTable($this->table_migrations)) {
+            $this->createRepository();
+        }
+
+        if (!$this->hasTable($this->table_seeds)) {
+            $this->createRepositorySeeder();
+        }
+
+        $this->run($args);
+    }
+
+    /**
+     * @return string
+     */
+    public function getPathMigrations(): string
+    {
+        return $this->path_migrations;
+    }
+
+    /**
+     * @return string
+     */
+    public function getPathSeeds(): string
+    {
+        return $this->path_seeds;
+    }
+
+    private function drop()
+    {
+        $tables = $this->query("SHOW TABLES")->fetchAll();
+
+        foreach ($tables as $row) {
+            $table = $row[0];
+
+            if ($table !== $this->table_migrations && $table !== $this->table_seeds) {
+                $sql = "DROP TABLE $table";
+            } else {
+                $sql = "TRUNCATE TABLE $table";
+            }
+
+            $this->exec($sql);
+        }
+
+        $this->show('All tables have been dropped.');
+    }
+
+    private function empty($tableToEmpty = null)
+    {
+        $tables = $this->query("SHOW TABLES")->fetchAll();
+
+        foreach ($tables as $row) {
+            $table = $row[0];
+
+            if (!is_null($tableToEmpty) && $table !== $tableToEmpty) {
+                continue;
+            }
+
+            $sql = "TRUNCATE TABLE $table";
+
+            $this->exec($sql);
+        }
+
+        $this->show('All tables have been truncated.');
+    }
+
+    private function run($args)
+    {
+        $action = array_shift($args);
+
+        $this->{$action}(...$args);
+    }
+
+    private function entity($name)
+    {
+        $class = Octo\Inflector::camelize($name);
+
+        $stub = $this->getStub('entity', $class, $name);
+
+        $file = __DIR__ . '/app/Model/'  . $class . '.php';
+
+        if (!file_exists($file)) {
+            Octo\File::put($file, $stub);
+            $this->show("Class {$class} has been created.");
+        } else {
+            $this->show("Class {$class} ever exists.", 'ERROR');
+        }
+    }
+
+    private function eloquent($name)
+    {
+        $class = Octo\Inflector::camelize($name);
+
+        $stub = $this->getStub('eloquent', $class, $name);
+
+        $file = __DIR__ . '/app/Model/'  . $class . '.php';
+
+        if (!file_exists($file)) {
+            Octo\File::put($file, $stub);
+            $this->show("Class {$class} has been created.");
+        } else {
+            $this->show("Class {$class} ever exists.", 'ERROR');
+        }
+    }
+
+    private function getKey()
+    {
+        $time = microtime();
+        list($micro, $timestamp) = explode(' ', $time);
+        list($dummy, $micro) = explode('.', $micro);
+
+        return substr($timestamp . $micro, 0, -4);
+    }
+
+    private function rollback()
+    {
+        $query = "SELECT batch FROM {$this->table_migrations} ORDER BY batch DESC LIMIT 1";
+        $batch = $this->query($query)->fetchColumn();
+        $files = glob($this->getPathMigrations() . DS . "*{$batch}*.php");
+
+        if (count($files) === 1) {
+            $file = array_shift($files);
+            $path = str_replace('.php', '', pathinfo($file, PATHINFO_BASENAME));
+            $class = Octo\Inflector::camelize($path);
+            $batch = (int) $batch;
+
+            require_once $file;
+
+            $instance = new $class;
+
+            Octo\callMethod($instance, 'down', $this->getSchema());
+
+            $query = "DELETE FROM {$this->table_migrations} WHERE batch = $batch";
+            $this->exec($query);
+
+            $this->show("Class {$class} has been rollbacked.");
+        } else {
+            $this->show("No migration to rollback.");
+        }
+    }
+
+    private function unseed()
+    {
+        $query = "SELECT batch FROM {$this->table_seeds} ORDER BY batch DESC LIMIT 1";
+        $batch = $this->query($query)->fetchColumn();
+        $files = glob($this->getPathSeeds() . DS . "*{$batch}*.php");
+
+        if (count($files) === 1) {
+            $file = array_shift($files);
+            $path = str_replace('.php', '', pathinfo($file, PATHINFO_BASENAME));
+            $class = Octo\Inflector::camelize($path);
+            $batch = (int) $batch;
+
+            $code = Octo\File::read($file);
+
+            $table = Octo\cut(")->into('", "')'", $code);
+
+            $query = "TRUNCATE TABLE {$table}";
+            $this->exec($query);
+
+            $query = "DELETE FROM {$this->table_seeds} WHERE batch = $batch";
+            $this->exec($query);
+
+            $this->show("Class {$class} has been unseeded.");
+        } else {
+            $this->show("No seed to unseed.");
+        }
+    }
+
+    /**
+     * @param string $msg
+     * @param string $type
+     */
+    private function show($msg, $type = 'INFO')
+    {
+        Octo\Cli::show($msg, $type);
+    }
+
+    private function migrate()
+    {
+        $files = glob($this->getPathMigrations() . DS . "*.php");
+
+        if (empty($files)) {
+            $this->show("No migration to migrate.");
+        } else {
+            $proceed = false;
+
+            foreach ($files as $file) {
+                $path = str_replace('.php', '', pathinfo($file, PATHINFO_BASENAME));
+                $class = Octo\Inflector::camelize($path);
+                list($action, $name, $batch) = explode('_', $path, 3);
+                $batch = (int) $batch;
+                $query = "SELECT COUNT(id) FROM {$this->table_migrations} WHERE batch = $batch";
+                $res = $this->query($query)->fetchColumn();
+
+                if (0 == $res) {
+                    $query = "INSERT INTO {$this->table_migrations} (migration, batch) 
+                    VALUES ('{$action}_{$name}', $batch)";
+                    $this->exec($query);
+
+                    require_once $file;
+
+                    $instance = new $class;
+
+                    Octo\callMethod($instance, 'up', $this->getSchema());
+
+                    $this->show("Class {$class} has been migrated.");
+
+                    $proceed = true;
+                }
+            }
+
+            if (false === $proceed) {
+                $this->show("No migration to migrate.");
+            }
+        }
+    }
+
+    private function seed()
+    {
+        $files = glob($this->getPathSeeds() . DS . "*.php");
+
+        if (empty($files)) {
+            $this->show("No seed to seed.");
+        } else {
+            $proceed = false;
+
+            foreach ($files as $file) {
+                $path = str_replace('.php', '', pathinfo($file, PATHINFO_BASENAME));
+                $class = Octo\Inflector::camelize($path);
+                list($action, $name, $batch) = explode('_', $path, 3);
+                $batch = (int) $batch;
+                $query = "SELECT COUNT(id) FROM {$this->table_seeds} WHERE batch = $batch";
+                $res = $this->query($query)->fetchColumn();
+
+                if (0 == $res) {
+                    $query = "INSERT INTO {$this->table_seeds} (seeder, batch) 
+                    VALUES ('{$action}_{$name}', $batch)";
+                    $this->exec($query);
+
+                    require_once $file;
+
+                    $instance = new $class;
+
+                    Octo\callMethod($instance, 'seeds', $this->getOrm(), faker());
+
+                    $this->show("Class {$class} has been seeded.");
+
+                    $proceed = true;
+                }
+            }
+
+            if (false === $proceed) {
+                $this->show("No seed to seed.");
+            }
+        }
+    }
+
+    private function create($name)
+    {
+        $key = $this->getKey();
+
+        $name = Octo\Inflector::slug($name, '_');
+
+        $path = 'create_' . $name . '_' . $key;
+
+        $class = Octo\Inflector::camelize($path);
+
+        $stub = $this->getStub('create', $class);
+
+        $file = $this->getPathMigrations() . DS . $path . '.php';
+
+        if (!file_exists($file)) {
+            Octo\File::put($file, $stub);
+            $this->show("Class {$class} has been created.");
+        } else {
+            $this->show("Class {$class} ever exists.", 'ERROR');
+        }
+    }
+
+    private function seeder($name)
+    {
+        $key = $this->getKey();
+
+        $name = Octo\Inflector::slug($name, '_');
+
+        $path = 'seeder_' . $name . '_' . $key;
+
+        $class = Octo\Inflector::camelize($path);
+
+        $stub = $this->getStub('seeder', $class);
+
+        $file = $this->getPathSeeds() . DS . $path . '.php';
+
+        if (!file_exists($file)) {
+            Octo\File::put($file, $stub);
+            $this->show("Class {$class} has been created.");
+        } else {
+            $this->show("Class {$class} ever exists.", 'ERROR');
+        }
+    }
+
+    private function update($name)
+    {
+        $key = $this->getKey();
+
+        $name = Octo\Inflector::slug($name, '_');
+
+        $path = 'update_' . $name . '_' . $key;
+
+        $class = Octo\Inflector::camelize($path);
+
+        $stub = $this->getStub('update', $class);
+
+        $file = $this->getPathMigrations() . DS . $path . '.php';
+
+        if (!file_exists($file)) {
+            Octo\File::put($file, $stub);
+            $this->show("Class {$class} has been created.");
+        } else {
+            $this->show("Class {$class} ever exists.", 'ERROR');
+        }
+    }
+
+    /**
+     * @param null $table
+     * @return bool
+     */
+    private function hasTable($table)
+    {
+        $query = "SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_name = '{$table}'";
+
+        $res = (int) $this->query($query)->fetchColumn();
+
+        return $res > 0;
+    }
+
+    private function setup()
+    {
+        $host       = getenv('MYSQL_HOST');
+        $port       = getenv('MYSQL_PORT');
+        $database   = getenv('MYSQL_DATABASE');
+        $password   = getenv('MYSQL_ROOT_PASSWORD');
+
+        $options = [
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+        ];
+
+        $this->pdo = new PDO(
+            "mysql:host=$host;port=$port;dbname=" .
+            $database,
+            'root',
+            $password,
+            $options
+        );
+
+        $this->orm = new \Octo\Orm($this->pdo);
+
+        $this->schema = $this->orm->schema();
+    }
+
+    private function createRepository()
+    {
+        $schema = $this->getSchema();
+
+        $schema->create($this->table_migrations, function (Blueprint $table) {
+            $table->increments('id');
+            $table->string('migration');
+            $table->bigInteger('batch');
+        });
+    }
+
+    private function createRepositorySeeder()
+    {
+        $schema = $this->getSchema();
+
+        $schema->create($this->table_seeds, function (Blueprint $table) {
+            $table->increments('id');
+            $table->string('seeder');
+            $table->bigInteger('batch');
+        });
+    }
+
+    /**
+     * @return Builder
+     */
+    public function getSchema()
+    {
+        return $this->schema;
+    }
+
+    /**
+     * @return PDO
+     */
+    public function getPdo()
+    {
+        return $this->pdo;
+    }
+
+    /**
+     * @return \Octo\Orm
+     */
+    public function getOrm()
+    {
+        return $this->orm;
+    }
+
+    /**
+     * @param string $type
+     * @param string $class
+     * @param string|null $table
+     *
+     * @return string
+     */
+    private function getStub($type, $class, $table = null)
+    {
+        $stubs = [
+            'create' => '<?php
+            
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\Builder;
+
+class ' . $class . '
+{
+    public function up(Builder $schema)
+    {
+        $schema->create(\'\', function (Blueprint $table) {
+            $table->charset = \'utf8\';
+            $table->collation = \'utf8_general_ci\';
+            $table->increments(\'id\');
+            $table->timestamp(\'created_at\')->nullable()->useCurrent();
+            $table->timestamp(\'updated_at\')->nullable()->useCurrent();
+        });
+    }
+    
+    public function down(Builder $schema)
+    {
+        $schema->dropIfExists(\'\');
+    }
+}',
+            'update' => '<?php
+            
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\Builder;
+
+class ' . $class . '
+{
+    public function up(Builder $schema)
+    {
+        $schema->table(\'\', function (Blueprint $table) {
+            //
+        });
+    }
+    
+    public function down(Builder $schema)
+    {
+        $schema->table(\'\', function (Blueprint $table) {
+            //
+        });
+    }
+}',
+            'seeder' => '<?php
+            
+use Faker\Generator;
+use Octo\Orm;
+
+class ' . $class . '
+{
+    public function seeds(Orm $db, Generator $faker)
+    {
+        //
+    }
+}',
+            'eloquent' => '<?php
+            
+namespace App\Model;
+
+use Octo\Ormmodel;
+
+class ' . $class . ' extends Ormmodel
+{
+    protected $table = \'' . $table . '\';
+}',
+            'entity' => '<?php
+            
+namespace App\Model;
+
+use Octo\Entity;
+
+class ' . $class . ' extends Entity
+{
+
+}'
+        ];
+
+        return $stubs[$type];
+    }
+
+    /**
+     * @param $sql
+     *
+     * @return PDOStatement
+     */
+    private function query($sql)
+    {
+        return $this->getPdo()->query($sql);
+    }
+
+    /**
+     * @param $sql
+     *
+     * @return int
+     */
+    private function exec($sql)
+    {
+        return $this->getPdo()->exec($sql);
+    }
+}
