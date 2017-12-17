@@ -1,0 +1,23 @@
+#!/usr/bin/env php
+<?php
+    namespace Octo;
+
+    use App\Bootstrap;
+
+    require_once __DIR__ . '/vendor/autoload.php';
+
+    call_user_func(function () {
+        systemBoot(realpath(__DIR__ . '/app'));
+
+        Octo::cli();
+
+        (new Bootstrap())->cli(new Fast);
+
+        $app = getContainer();
+
+        $app->register(Work::class, function () {
+            return new Work(new FastNow('jobs'));
+        });ldd($app->resolve(Work::class));
+
+        ldd($app->resolve(Work::class)->process());
+    });

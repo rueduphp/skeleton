@@ -25,7 +25,7 @@ class Pages extends Module
     public function config(Fast $app)
     {
         $this->app = $app;
-        $app->twigRenderer(__DIR__ . DS . 'views'. DS . 'Pages');
+        $app->twigRenderer(__DIR__ . DS . 'views' . DS . 'Pages');
     }
 
     /**
@@ -53,5 +53,4 @@ class Pages extends Module
     {
         return $this->renderer->render('home');
     }
-
 }

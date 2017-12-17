@@ -11,6 +11,7 @@
         "role": "Developer"
     }],
     "config": {
+        "bin-dir": "bin",
         "preferred-install": "dist"
     },
     "require": {
@@ -18,7 +19,11 @@
         "rueduphp/octo": "^2"
     },
     "require-dev": {
-        "phpunit/phpunit": "@stable"
+        "phpunit/phpunit": "@stable",
+        "squizlabs/php_codesniffer": "@stable",
+        "sebastian/phpcpd": "@stable",
+        "phpmd/phpmd": "@stable",
+        "phing/phing": "@stable"
     },
     "autoload": {
         "psr-4": {

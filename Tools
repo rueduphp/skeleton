@@ -186,8 +186,8 @@ class Tools
     private function getKey()
     {
         $time = microtime();
-        list($micro, $timestamp) = explode(' ', $time);
-        list($dummy, $micro) = explode('.', $micro);
+        list($micro, $timestamp) = explode(' ', $time, 2);
+        list($dummy, $micro) = explode('.', $micro, 2);
 
         return substr($timestamp . $micro, 0, -4);
     }
@@ -273,7 +273,7 @@ class Tools
                 $query = "SELECT COUNT(id) FROM {$this->table_migrations} WHERE batch = $batch";
                 $res = $this->query($query)->fetchColumn();
 
-                if (0 == $res) {
+                if (0 === $res) {
                     $query = "INSERT INTO {$this->table_migrations} (migration, batch) 
                     VALUES ('{$action}_{$name}', $batch)";
                     $this->exec($query);
@@ -313,7 +313,7 @@ class Tools
                 $query = "SELECT COUNT(id) FROM {$this->table_seeds} WHERE batch = $batch";
                 $res = $this->query($query)->fetchColumn();
 
-                if (0 == $res) {
+                if (0 === $res) {
                     $query = "INSERT INTO {$this->table_seeds} (seeder, batch) 
                     VALUES ('{$action}_{$name}', $batch)";
                     $this->exec($query);
@@ -442,9 +442,7 @@ class Tools
 
     private function createRepository()
     {
-        $schema = $this->getSchema();
-
-        $schema->create($this->table_migrations, function (Blueprint $table) {
+        $this->getSchema()->create($this->table_migrations, function (Blueprint $table) {
             $table->increments('id');
             $table->string('migration');
             $table->bigInteger('batch');
@@ -453,9 +451,7 @@ class Tools
 
     private function createRepositorySeeder()
     {
-        $schema = $this->getSchema();
-
-        $schema->create($this->table_seeds, function (Blueprint $table) {
+        $this->getSchema()->create($this->table_seeds, function (Blueprint $table) {
             $table->increments('id');
             $table->string('seeder');
             $table->bigInteger('batch');

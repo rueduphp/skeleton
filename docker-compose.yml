@@ -1,7 +1,7 @@
 version: '2.1'
 services:
   app:
-    build: .
+    image: rueduphp/phpdev
     volumes:
       - .:/var/www
     environment:
@@ -24,12 +24,14 @@ services:
       - "SENDMAIL_PATH=/usr/lib/sendmail"
     links:
       - mysql
+      - postgres
       - redis
+      - maildev
 
   mysql:
-    image: mysql:5.7
+    image: mariadb
     volumes:
-      - ./data:/var/lib/mysql
+      - ./data/mysql:/var/lib/mysql
     environment:
       - "MYSQL_ROOT_PASSWORD=root"
       - "MYSQL_DATABASE=octo"
@@ -37,6 +39,23 @@ services:
       - "MYSQL_PASSWORD=octo"
     ports:
       - "3366:3306"
+
+  postgres:
+    image: postgres:9.6
+    volumes:
+      - ./data/pg:/var/lib/postgresql/data
+    environment:
+      - "POSTGRES_USER=octo"
+      - "POSTGRES_PASSWORD=octo"
+      - "POSTGRES_DB=octo"
+    ports:
+      - "5532:5432"
+
+  maildev:
+    restart: always
+    image: djfarrelly/maildev
+    ports:
+      - "1080:80"
 
   redis:
     image: redis:4.0-alpine

@@ -7,8 +7,12 @@
 
     require_once realpath($dir) . '/../vendor/autoload.php';
 
-    systemBoot($dir);
+    try {
+        systemBoot($dir);
 
-    Octo::init($dir);
+        Octo::init($dir);
 
-    Octo::apply(new Bootstrap());
+        Octo::apply(new Bootstrap());
+    } catch (\Exception $e) {
+        dd($e);
+    }

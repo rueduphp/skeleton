@@ -14,19 +14,18 @@ use Octo\Fastmiddlewaremustbeauthorized;
 use Octo\Fastmiddlewarenotfound;
 use Octo\Fastmiddlewarerouter;
 use Octo\Fastmiddlewaretrailingslash;
-use Octo\FastOrminterface;
 use Octo\FastRendererInterface;
 use Octo\FastRouterInterface;
 use Octo\FastSessionInterface;
-use Octo\FastTrait;
 use Octo\Fast;
+use Octo\Framework;
 use Octo\Orm;
 use Octo\Session;
 use PDO;
 
 class Bootstrap
 {
-    use FastTrait;
+    use Framework;
 
     /**
      * @var Fast
@@ -90,11 +89,10 @@ class Bootstrap
     private function register()
     {
         $this->app
-            ->set(FastOrminterface::class, function () {
+            ->set(Orm::class, function () {
                 $pdo = $this->get('pdo');
 
                 if (!$pdo instanceof PDO) {
-
                     $host       = getenv('MYSQL_HOST');
                     $port       = getenv('MYSQL_PORT');
                     $database   = getenv('MYSQL_DATABASE');
@@ -122,7 +120,7 @@ class Bootstrap
 
                 return new Orm($pdo);
             })
-            ->set(FastContainerInterface::class, function () {
+            ->set(Fastcontainer::class, function () {
                 return $this->instanciator()->singleton(Fastcontainer::class);
             })
             ->set(Fastmiddlewarecsrf::class, function () {
@@ -154,6 +152,7 @@ class Bootstrap
     private function middlewares()
     {
         $this->app
+            ->addMiddleware(Middlewares\Events::class)
             ->addMiddleware(Fastmiddlewaretrailingslash::class)
             ->addMiddleware(Fastmiddlewarecsrf::class)
 //            ->addMiddleware(Fastmiddlewaregeo::class)
@@ -181,6 +180,7 @@ class Bootstrap
 
     /**
      * @param Session $session
+     *
      * @return Bootstrap
      */
     public function setSession(Session $session): Bootstrap

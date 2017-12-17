@@ -29,7 +29,7 @@
             var_dump($infos);
             echo '</pre>';
 
-            $trace = ob_get_clean();
+            $trace = ob_et_clean();
 
             $html = '<h1><i class="fa fa-warning fa-2x"></i> Error to boot Octo</h1>';
             $html .= 'Please read the next message to fix.';
