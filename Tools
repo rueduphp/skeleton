@@ -2,13 +2,15 @@
 <?php
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
+use Octo\Work;
+use Octo\FastCache;
 use function Octo\faker;
 use function Octo\systemBoot;
 
 ini_set('error_reporting', E_ALL);
 ini_set('display_errors', true);
 
-$ini = parse_ini_file(__DIR__ . '/.env');
+$ini = parse_ini_file(realpath(__DIR__) . '/.env');
 
 defined('APPLICATION_ENV') || define('APPLICATION_ENV', isset($ini['APPLICATION_ENV']) ? $ini['APPLICATION_ENV'] : 'production');
 defined('SITE_NAME') || define('SITE_NAME', isset($ini['SITE_NAME']) ? $ini['SITE_NAME']         : 'project');
@@ -19,16 +21,17 @@ path("app", realpath(__DIR__ . '/app'));
 path("base", realpath(__DIR__));
 
 call_user_func(function () use ($argv) {
-    systemBoot(__DIR__);
+    systemBoot(realpath(__DIR__));
     Octo\Octo::cli();
 
     if (count($argv) > 1) {
         array_shift($argv);
 
         try {
-            new Tools(__DIR__ . '/app/databases', $argv);
+            new Tools(realpath(__DIR__) . '/app/databases', $argv);
         } catch (Exception $e) {
-            dd($e);
+            Octo\Cli::show($e->getMessage(), 'ERROR');
+            ldd($e);
         }
     } else {
         Octo\Cli::show("Please provide an action", 'ERROR');
@@ -149,6 +152,82 @@ class Tools
         $action = array_shift($args);
 
         $this->{$action}(...$args);
+    }
+
+    private function cron()
+    {
+        $this->show('Cron job start');
+        $this->job_process();
+        $this->show('Cron job end');
+    }
+
+    private function job_process()
+    {
+        $worker = new Work(new FastCache('jobs'));
+
+        $computed = $worker->process();
+
+        $this->show($computed . ' jobs processed');
+    }
+
+    private function job_add($name)
+    {
+        $class = Octo\Inflector::camelize($name);
+
+        $stub = $this->getStub('job', $class, $name);
+
+        if (!is_dir(__DIR__ . '/app/Jobs')) {
+            Octo\File::mkdir(__DIR__ . '/app/Jobs');
+        }
+
+        $file = __DIR__ . '/app/Jobs/'  . $class . '.php';
+
+        if (!file_exists($file)) {
+            Octo\File::put($file, $stub);
+            $this->show("Job {$class} has been created.");
+        } else {
+            $this->show("Job {$class} ever exists.", 'ERROR');
+        }
+    }
+
+    private function event_add($name)
+    {
+        $class = Octo\Inflector::camelize($name);
+
+        $stub = $this->getStub('event', $class, $name);
+
+        if (!is_dir(__DIR__ . '/app/Events')) {
+            Octo\File::mkdir(__DIR__ . '/app/Events');
+        }
+
+        $file = __DIR__ . '/app/Events/'  . $class . '.php';
+
+        if (!file_exists($file)) {
+            Octo\File::put($file, $stub);
+            $this->show("Event {$class} has been created.");
+        } else {
+            $this->show("Event {$class} ever exists.", 'ERROR');
+        }
+    }
+
+    private function request_add($name)
+    {
+        $class = Octo\Inflector::camelize($name);
+
+        $stub = $this->getStub('request', $class, $name);
+
+        if (!is_dir(__DIR__ . '/app/Requests')) {
+            Octo\File::mkdir(__DIR__ . '/app/Requests');
+        }
+
+        $file = __DIR__ . '/app/Requests/'  . $class . '.php';
+
+        if (!file_exists($file)) {
+            Octo\File::put($file, $stub);
+            $this->show("Request {$class} has been created.");
+        } else {
+            $this->show("Request {$class} ever exists.", 'ERROR');
+        }
     }
 
     private function entity($name)
@@ -274,7 +353,7 @@ class Tools
                 $res = $this->query($query)->fetchColumn();
 
                 if (0 === $res) {
-                    $query = "INSERT INTO {$this->table_migrations} (migration, batch) 
+                    $query = "INSERT INTO {$this->table_migrations} (migration, batch)
                     VALUES ('{$action}_{$name}', $batch)";
                     $this->exec($query);
 
@@ -314,7 +393,7 @@ class Tools
                 $res = $this->query($query)->fetchColumn();
 
                 if (0 === $res) {
-                    $query = "INSERT INTO {$this->table_seeds} (seeder, batch) 
+                    $query = "INSERT INTO {$this->table_seeds} (seeder, batch)
                     VALUES ('{$action}_{$name}', $batch)";
                     $this->exec($query);
 
@@ -435,9 +514,15 @@ class Tools
             $options
         );
 
-        $this->orm = new \Octo\Orm($this->pdo);
+        $this->orm = new Octo\Orm($this->pdo);
 
         $this->schema = $this->orm->schema();
+
+        Octo\Config::set('dir.cache', getenv('CACHE_PATH'));
+
+        if (!is_dir(getenv('CACHE_PATH'))) {
+            Octo\File::mkdir(getenv('CACHE_PATH'));
+        }
     }
 
     private function createRepository()
@@ -493,7 +578,7 @@ class Tools
     {
         $stubs = [
             'create' => '<?php
-            
+
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
@@ -509,14 +594,15 @@ class ' . $class . '
             $table->timestamp(\'updated_at\')->nullable()->useCurrent();
         });
     }
-    
+
     public function down(Builder $schema)
     {
         $schema->dropIfExists(\'\');
     }
-}',
+}
+',
             'update' => '<?php
-            
+
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
@@ -528,16 +614,17 @@ class ' . $class . '
             //
         });
     }
-    
+
     public function down(Builder $schema)
     {
         $schema->table(\'\', function (Blueprint $table) {
             //
         });
     }
-}',
+}
+',
             'seeder' => '<?php
-            
+
 use Faker\Generator;
 use Octo\Orm;
 
@@ -547,9 +634,10 @@ class ' . $class . '
     {
         //
     }
-}',
+}
+',
             'eloquent' => '<?php
-            
+
 namespace App\Model;
 
 use Octo\Ormmodel;
@@ -557,9 +645,26 @@ use Octo\Ormmodel;
 class ' . $class . ' extends Ormmodel
 {
     protected $table = \'' . $table . '\';
-}',
+}
+',
+            'request' => '<?php
+
+namespace App\Requests;
+
+use Octo\Framework;
+
+class ' . $class . '
+{
+    use Framework;
+
+    public function __construct()
+    {
+        $request = $this->getContainer()->getRequest();
+    }
+}
+',
             'entity' => '<?php
-            
+
 namespace App\Model;
 
 use Octo\Entity;
@@ -567,7 +672,72 @@ use Octo\Entity;
 class ' . $class . ' extends Entity
 {
 
-}'
+}
+',
+            'job' => '<?php
+
+namespace App\Jobs;
+
+use Octo\FastJobInterface;
+use Octo\Framework;
+
+class ' . $class . ' implements FastJobInterface
+{
+    use Framework;
+
+    public function __construct()
+    {
+        //
+    }
+
+    public function process()
+    {
+        //
+    }
+
+    public function onSuccess()
+    {
+        //
+    }
+
+    public function onFail()
+    {
+        //
+    }
+}
+',
+            'event' => '<?php
+
+namespace App\Events;
+
+use Octo\FastEventInterface;
+use Octo\Framework;
+
+class ' . $class . ' implements FastEventInterface
+{
+    use Framework;
+
+    public function __construct()
+    {
+        //
+    }
+
+    public function fire()
+    {
+        //
+    }
+
+    public function onSuccess()
+    {
+        //
+    }
+
+    public function onFail()
+    {
+        //
+    }
+}
+'
         ];
 
         return $stubs[$type];

@@ -1,7 +1,7 @@
 FROM php:7.2-rc-apache
 
 RUN apt-get update \
-&& apt-get install -y gnupg gnupg2 libcurl4-openssl-dev libedit-dev libsqlite3-dev libssl-dev libxml2-dev wget curl vim
+&& apt-get install -y cron gnupg gnupg2 libcurl4-openssl-dev libedit-dev libsqlite3-dev libssl-dev libxml2-dev wget curl vim
 
 RUN apt-get install -q -y ssmtp mailutils
 
@@ -60,14 +60,18 @@ RUN cd ~; git clone https://github.com/phalcon/cphalcon -b master --single-branc
 
 RUN npm install -g socket.io sass yarn gulp bower forever maildev nodemon
 
-RUN { \
-        echo 'opcache.memory_consumption=128'; \
-        echo 'opcache.interned_strings_buffer=8'; \
-        echo 'opcache.max_accelerated_files=4000'; \
-        echo 'opcache.revalidate_freq=60'; \
-        echo 'opcache.fast_shutdown=1'; \
-        echo 'opcache.enable_cli=1'; \
-    } > /usr/local/etc/php/conf.d/opcache-recommended.ini
+ADD crontab /etc/cron.d/app-cron
+RUN chmod 0644 /etc/cron.d/app-cron
+RUN touch /var/log/cron.log
+
+# RUN { \
+#         echo 'opcache.memory_consumption=128'; \
+#         echo 'opcache.interned_strings_buffer=8'; \
+#         echo 'opcache.max_accelerated_files=4000'; \
+#         echo 'opcache.revalidate_freq=60'; \
+#         echo 'opcache.fast_shutdown=1'; \
+#         echo 'opcache.enable_cli=1'; \
+#     } > /usr/local/etc/php/conf.d/opcache-recommended.ini
 
 VOLUME  /var/www
 WORKDIR /var/www

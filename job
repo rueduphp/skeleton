@@ -13,11 +13,9 @@
 
         (new Bootstrap())->cli(new Fast);
 
-        $app = getContainer();
+        $worker = new Work(new FastCache('jobs'));
 
-        $app->register(Work::class, function () {
-            return new Work(new FastNow('jobs'));
-        });ldd($app->resolve(Work::class));
+        $computed = $worker->process();
 
-        ldd($app->resolve(Work::class)->process());
+        Cli::show($computed . ' jobs processed');
     });

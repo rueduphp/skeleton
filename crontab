@@ -1,0 +1,1 @@
+* * * * * root /usr/bin/env /usr/local/bin/php /var/www/Tools cron >> /var/log/cron.log 2>&1
