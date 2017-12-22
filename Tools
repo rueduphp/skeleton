@@ -651,15 +651,13 @@ class ' . $class . ' extends Ormmodel
 
 namespace App\Requests;
 
-use Octo\Framework;
+use Octo\FastRequest;
 
-class ' . $class . '
+class ' . $class . ' extends FastRequest
 {
-    use Framework;
-
     public function __construct()
     {
-        $request = $this->getContainer()->getRequest();
+        parent::__construct();
     }
 }
 ',
