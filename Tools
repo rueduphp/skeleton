@@ -5,6 +5,7 @@ use Illuminate\Database\Schema\Builder;
 use Octo\Work;
 use Octo\FastCache;
 use function Octo\faker;
+use function Octo\path;
 use function Octo\systemBoot;
 
 ini_set('error_reporting', E_ALL);
@@ -30,8 +31,8 @@ call_user_func(function () use ($argv) {
         try {
             new Tools(realpath(__DIR__) . '/app/databases', $argv);
         } catch (Exception $e) {
-            Octo\Cli::show($e->getMessage(), 'ERROR');
-            ldd($e);
+            dd($e);
+            Octo\Cli::show($e->getMessage() . ' === [' . $e->getFile() . ' ' . $e->getLine() . '] ===', 'ERROR');
         }
     } else {
         Octo\Cli::show("Please provide an action", 'ERROR');
@@ -109,6 +110,30 @@ class Tools
         return $this->path_seeds;
     }
 
+    private function caching()
+    {
+        if (!$this->hasTable('caching')) {
+            $this->getSchema()->create('caching', function (Blueprint $table) {
+                $table->string('k')->primary()->unique();
+                $table->longText('v')->nullable();
+                $table->unsignedBigInteger('e')->index();
+            });
+
+            $this->show("Caching table has been created.");
+        } else {
+            $this->show("Caching table ever exists.", 'ERROR');
+        }
+    }
+
+    private function serve()
+    {
+        $base = realpath(__DIR__);
+
+        $this->show('Server is running on http://localhost:8000');
+
+        passthru("php -S localhost:8000 {$base}/server.php");
+    }
+
     private function drop()
     {
         $tables = $this->query("SHOW TABLES")->fetchAll();
@@ -147,7 +172,10 @@ class Tools
         $this->show('All tables have been truncated.');
     }
 
-    private function run($args)
+    /**
+     * @param array $args
+     */
+    private function run(array $args)
     {
         $action = array_shift($args);
 
@@ -170,7 +198,11 @@ class Tools
         $this->show($computed . ' jobs processed');
     }
 
-    private function job_add($name)
+    /**
+     * @param string $name
+     * @throws \Octo\Exception
+     */
+    private function job_add(string $name)
     {
         $class = Octo\Inflector::camelize($name);
 
@@ -190,7 +222,28 @@ class Tools
         }
     }
 
-    private function event_add($name)
+    private function init_sql_cache()
+    {
+        if (!$this->hasTable('data_cache')) {
+            $sql = "CREATE TABLE IF NOT EXISTS `data_cache` (
+  `k` varchar(255) NOT NULL,
+  `v` longtext NOT NULL,
+  `e` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`k`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
+            $this->query($sql);
+
+            $this->show("SQL Cache is now enabled");
+        } else {
+            $this->show("SQL Cache is ever enabled", "ERROR");
+        }
+    }
+
+    /**
+     * @param string $name
+     * @throws \Octo\Exception
+     */
+    private function event_add(string $name)
     {
         $class = Octo\Inflector::camelize($name);
 
@@ -210,7 +263,11 @@ class Tools
         }
     }
 
-    private function request_add($name)
+    /**
+     * @param string $name
+     * @throws \Octo\Exception
+     */
+    private function request_add(string $name)
     {
         $class = Octo\Inflector::camelize($name);
 
@@ -230,11 +287,20 @@ class Tools
         }
     }
 
-    private function entity($name)
+    /**
+     * @param string $name
+     * @throws \Octo\Exception
+     */
+    private function entity(string $name)
     {
         $class = Octo\Inflector::camelize($name);
 
         $stub = $this->getStub('entity', $class, $name);
+
+        if (!is_dir(__DIR__ . '/app/Model')) {
+            Octo\File::mkdir(__DIR__ . '/app/Model');
+        }
+
 
         $file = __DIR__ . '/app/Model/'  . $class . '.php';
 
@@ -246,9 +312,17 @@ class Tools
         }
     }
 
-    private function eloquent($name)
+    /**
+     * @param string $name
+     * @throws \Octo\Exception
+     */
+    private function eloquent(string $name)
     {
         $class = Octo\Inflector::camelize($name);
+
+        if (!is_dir(__DIR__ . '/app/Model')) {
+            Octo\File::mkdir(__DIR__ . '/app/Model');
+        }
 
         $stub = $this->getStub('eloquent', $class, $name);
 
@@ -415,7 +489,10 @@ class Tools
         }
     }
 
-    private function create($name)
+    /**
+     * @param string $name
+     */
+    private function create(string $name)
     {
         $key = $this->getKey();
 
@@ -437,7 +514,10 @@ class Tools
         }
     }
 
-    private function seeder($name)
+    /**
+     * @param string $name
+     */
+    private function seeder(string $name)
     {
         $key = $this->getKey();
 
@@ -459,7 +539,10 @@ class Tools
         }
     }
 
-    private function update($name)
+    /**
+     * @param string $name
+     */
+    private function update(string $name)
     {
         $key = $this->getKey();
 
@@ -483,9 +566,10 @@ class Tools
 
     /**
      * @param null $table
+     *
      * @return bool
      */
-    private function hasTable($table)
+    private function hasTable($table): bool
     {
         $query = "SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_name = '{$table}'";
 
@@ -496,10 +580,11 @@ class Tools
 
     private function setup()
     {
-        $host       = getenv('MYSQL_HOST');
-        $port       = getenv('MYSQL_PORT');
-        $database   = getenv('MYSQL_DATABASE');
-        $password   = getenv('MYSQL_ROOT_PASSWORD');
+        $host       = appenv('DATABASE_HOST');
+        $port       = appenv('DATABASE_PORT');
+        $user       = appenv('DATABASE_USER');
+        $database   = appenv('DATABASE_NAME');
+        $password   = appenv('DATABASE_PASSWORD');
 
         $options = [
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -509,7 +594,7 @@ class Tools
         $this->pdo = new PDO(
             "mysql:host=$host;port=$port;dbname=" .
             $database,
-            'root',
+            $user,
             $password,
             $options
         );
@@ -518,10 +603,12 @@ class Tools
 
         $this->schema = $this->orm->schema();
 
-        Octo\Config::set('dir.cache', getenv('CACHE_PATH'));
+        $cache_path = str_replace('##base_path##', path('base'), appenv('CACHE_PATH'));
 
-        if (!is_dir(getenv('CACHE_PATH'))) {
-            Octo\File::mkdir(getenv('CACHE_PATH'));
+        Octo\Config::set('dir.cache', $cache_path);
+
+        if (!is_dir($cache_path)) {
+            Octo\File::mkdir($cache_path);
         }
     }
 
@@ -574,7 +661,7 @@ class Tools
      *
      * @return string
      */
-    private function getStub($type, $class, $table = null)
+    private function getStub(string $type, string $class, ?string $table = null): string
     {
         $stubs = [
             'create' => '<?php
@@ -592,6 +679,7 @@ class ' . $class . '
             $table->increments(\'id\');
             $table->timestamp(\'created_at\')->nullable()->useCurrent();
             $table->timestamp(\'updated_at\')->nullable()->useCurrent();
+            $table->engine = \'InnoDB\';
         });
     }
 
@@ -742,21 +830,21 @@ class ' . $class . ' implements FastEventInterface
     }
 
     /**
-     * @param $sql
+     * @param string $sql
      *
      * @return PDOStatement
      */
-    private function query($sql)
+    private function query(string $sql): PDOStatement
     {
         return $this->getPdo()->query($sql);
     }
 
     /**
-     * @param $sql
+     * @param string $sql
      *
      * @return int
      */
-    private function exec($sql)
+    private function exec(string $sql)
     {
         return $this->getPdo()->exec($sql);
     }

@@ -4,3 +4,4 @@
 /app/storage
 /.idea
 composer.lock
+package-lock.json

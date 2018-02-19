@@ -3,25 +3,25 @@ namespace App;
 
 use Geocoder\Geocoder;
 use Octo\Cache;
+use Octo\Caching;
+use Octo\Fast;
 use Octo\FastCacheInterface;
 use Octo\Fastcontainer;
-use Octo\FastContainerInterface;
-use Octo\Fastmiddlewareacl;
 use Octo\Fastmiddlewarecsrf;
 use Octo\Fastmiddlewaredispatch;
 use Octo\Fastmiddlewaregeo;
-use Octo\Fastmiddlewaremustbeauthorized;
 use Octo\Fastmiddlewarenotfound;
 use Octo\Fastmiddlewarerouter;
 use Octo\Fastmiddlewaretrailingslash;
 use Octo\FastRendererInterface;
 use Octo\FastRouterInterface;
 use Octo\FastSessionInterface;
-use Octo\Fast;
 use Octo\Framework;
+use Octo\Live;
 use Octo\Orm;
 use Octo\Session;
 use PDO;
+use function Octo\sessionKey;
 
 class Bootstrap
 {
@@ -39,11 +39,14 @@ class Bootstrap
 
     /**
      * @param Fast $app
+     *
+     * @throws \Octo\Exception
+     * @throws \TypeError
      */
     public function __invoke(Fast $app)
     {
         $this->app = $app;
-        $this->session = new Session();
+        $this->session = new Live(new Caching(sessionKey()));
 
         $response = $this
             ->config()
@@ -108,7 +111,7 @@ class Bootstrap
                     ];
 
                     $pdo = new PDO(
-                        "mysql:host=$host;port=$port;dbname=" .
+                        "mysql:host={$host};port={$port};dbname=" .
                         $database,
                         'root',
                         $password,
@@ -130,7 +133,7 @@ class Bootstrap
                 return Fastmiddlewaregeo::createGeocoder();
             })
             ->set(FastSessionInterface::class, function () {
-                return new Session;
+                return new Live(new Caching(sessionKey()));
             })
             ->set(FastCacheInterface::class, function () {
                 return new Cache;
@@ -179,11 +182,11 @@ class Bootstrap
     }
 
     /**
-     * @param Session $session
+     * @param FastSessionInterface $session
      *
      * @return Bootstrap
      */
-    public function setSession(Session $session): Bootstrap
+    public function setSession(FastSessionInterface $session): Bootstrap
     {
         $this->session = $session;
 
@@ -191,9 +194,9 @@ class Bootstrap
     }
 
     /**
-     * @return Session
+     * @return FastSessionInterface
      */
-    public function getSession(): Session
+    public function getSession(): FastSessionInterface
     {
         return $this->session;
     }
