@@ -578,6 +578,9 @@ class Tools
         return $res > 0;
     }
 
+    /**
+     * @throws \Octo\Exception
+     */
     private function setup()
     {
         $host       = appenv('DATABASE_HOST');
