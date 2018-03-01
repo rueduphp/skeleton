@@ -1,6 +1,7 @@
 <?php
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
+
 class CreateUser15107325872086
 {
     public function up(Builder $schema)

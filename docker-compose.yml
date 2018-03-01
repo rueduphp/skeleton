@@ -22,8 +22,8 @@ services:
       - "APPLICATION_URL=http://www.rueduphp.com"
       - "SITE_NAME=rueduphp"
       - "MAILER_DRIVER=smtp"
-      - "SMTP_HOST=mailtrap.io"
-      - "SMTP_PORT=2525"
+      - "SMTP_HOST=maildev"
+      - "SMTP_PORT=25"
       - "SMTP_SECURITY=null"
       - "SMTP_USER=null"
       - "SMTP_PASSWORD=null"
@@ -33,6 +33,7 @@ services:
       - "TMP_PATH=/var/www/data/tmp"
       - "PUBLIC_PATH=/var/www/public"
       - "ASSETS_PATH=/var/www/public/assets"
+      - "COMMANDS_PATH=/var/www/app/Commands"
     links:
       - mysql
       - postgres

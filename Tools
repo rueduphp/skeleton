@@ -1,10 +1,16 @@
 #!/usr/bin/env php
 <?php
+
+use App\Bootstrap;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
-use Octo\Work;
+use Octo\Fast;
 use Octo\FastCache;
+use Octo\Orm;
+use Octo\Work;
+use function Octo\appenv as getConfEnv;
 use function Octo\faker;
+use function Octo\instanciator;
 use function Octo\path;
 use function Octo\systemBoot;
 
@@ -23,19 +29,19 @@ path("base", realpath(__DIR__));
 
 call_user_func(function () use ($argv) {
     systemBoot(realpath(__DIR__));
-    Octo\Octo::cli();
+    $app = (new Bootstrap())->cli();
 
     if (count($argv) > 1) {
         array_shift($argv);
 
         try {
-            new Tools(realpath(__DIR__) . '/app/databases', $argv);
+            new Tools($app, realpath(__DIR__) . '/app/databases', $argv);
         } catch (Exception $e) {
             dd($e);
             Octo\Cli::show($e->getMessage() . ' === [' . $e->getFile() . ' ' . $e->getLine() . '] ===', 'ERROR');
         }
     } else {
-        Octo\Cli::show("Please provide an action", 'ERROR');
+        Octo\Cli::show('Please provide an action', 'ERROR');
     }
 });
 
@@ -67,7 +73,7 @@ class Tools
     private $pdo;
 
     /**
-     * @var \Octo\Orm
+     * @var Orm
      */
     private $orm;
 
@@ -75,9 +81,21 @@ class Tools
      * @var Builder
      */
     private $schema;
+    /**
+     * @var Fast
+     */
+    private $app;
 
-    public function __construct($path, array $args)
+    /**
+     * @param Fast $app
+     * @param $path
+     * @param array $args
+     * @throws ReflectionException
+     * @throws \Octo\Exception
+     */
+    public function __construct(Fast $app, $path, array $args)
     {
+        $this->app = $app;
         $this->path_migrations = $path . '/migrations';
         $this->path_seeds = $path . '/seeds';
 
@@ -108,6 +126,11 @@ class Tools
     public function getPathSeeds(): string
     {
         return $this->path_seeds;
+    }
+
+    private function make_caching()
+    {
+        $this->caching();
     }
 
     private function caching()
@@ -174,12 +197,37 @@ class Tools
 
     /**
      * @param array $args
+     * @throws ReflectionException
      */
     private function run(array $args)
     {
-        $action = array_shift($args);
+        $cmd = array_shift($args);
+        $action = str_replace(':', '_', $cmd);
+        $proceed = false;
 
-        $this->{$action}(...$args);
+        if (in_array($action, get_class_methods($this))) {
+            $this->{$action}(...$args);
+            $proceed = true;
+        } else {
+            $path = str_replace('##base_path##', path('base'), getConfEnv('COMMANDS_PATH')) . DS;
+            $commandsFiles = glob($path . '*.php', GLOB_NOSORT);
+
+            foreach ($commandsFiles as $commandsFile) {
+                require_once $commandsFile;
+                $class = '\\App\\Commands\\' . str_replace([$path, '.php'], '', $commandsFile);
+                $instance = instanciator()->factory($class);
+
+                if (in_array($action, get_class_methods($instance))) {
+                    $params = array_merge([$instance, $action, $this->app], $args);
+                    instanciator()->call(...$params);
+                    $proceed = true;
+                }
+            }
+        }
+
+        if (false === $proceed) {
+            $this->show('Task "' . $cmd . '" does not exist.', 'ERROR');
+        }
     }
 
     private function cron()
@@ -189,6 +237,17 @@ class Tools
         $this->show('Cron job end');
     }
 
+    /**
+     * @throws \Octo\Exception
+     */
+    private function run_jobs()
+    {
+        $this->job_process();
+    }
+
+    /**
+     * @throws \Octo\Exception
+     */
     private function job_process()
     {
         $worker = new Work(new FastCache('jobs'));
@@ -196,6 +255,14 @@ class Tools
         $computed = $worker->process();
 
         $this->show($computed . ' jobs processed');
+    }
+
+    /**
+     * @throws \Octo\Exception
+     */
+    private function make_job()
+    {
+        $this->job_add(...func_get_args());
     }
 
     /**
@@ -240,6 +307,14 @@ class Tools
     }
 
     /**
+     * @throws \Octo\Exception
+     */
+    private function make_event()
+    {
+        $this->event_add(...func_get_args());
+    }
+
+    /**
      * @param string $name
      * @throws \Octo\Exception
      */
@@ -261,6 +336,14 @@ class Tools
         } else {
             $this->show("Event {$class} ever exists.", 'ERROR');
         }
+    }
+
+    /**
+     * @throws \Octo\Exception
+     */
+    private function make_request()
+    {
+        $this->request_add(...func_get_args());
     }
 
     /**
@@ -288,6 +371,14 @@ class Tools
     }
 
     /**
+     * @throws \Octo\Exception
+     */
+    private function make_entity()
+    {
+        $this->entity(...func_get_args());
+    }
+
+    /**
      * @param string $name
      * @throws \Octo\Exception
      */
@@ -310,6 +401,14 @@ class Tools
         } else {
             $this->show("Class {$class} ever exists.", 'ERROR');
         }
+    }
+
+    /**
+     * @throws \Octo\Exception
+     */
+    private function make_model()
+    {
+        $this->eloquent(...func_get_args());
     }
 
     /**
@@ -345,6 +444,17 @@ class Tools
         return substr($timestamp . $micro, 0, -4);
     }
 
+    /**
+     * @throws ReflectionException
+     */
+    private function make_rollback()
+    {
+        $this->rollback();
+    }
+
+    /**
+     * @throws ReflectionException
+     */
     private function rollback()
     {
         $query = "SELECT batch FROM {$this->table_migrations} ORDER BY batch DESC LIMIT 1";
@@ -370,6 +480,11 @@ class Tools
         } else {
             $this->show("No migration to rollback.");
         }
+    }
+
+    private function make_unseed()
+    {
+        $this->unseed();
     }
 
     private function unseed()
@@ -449,6 +564,9 @@ class Tools
         }
     }
 
+    /**
+     * @throws ReflectionException
+     */
     private function seed()
     {
         $files = glob($this->getPathSeeds() . DS . "*.php");
@@ -489,6 +607,11 @@ class Tools
         }
     }
 
+    private function make_migration()
+    {
+        $this->create(...func_get_args());
+    }
+
     /**
      * @param string $name
      */
@@ -514,6 +637,11 @@ class Tools
         }
     }
 
+    private function make_seed()
+    {
+        $this->seeder(...func_get_args());
+    }
+
     /**
      * @param string $name
      */
@@ -537,6 +665,11 @@ class Tools
         } else {
             $this->show("Class {$class} ever exists.", 'ERROR');
         }
+    }
+
+    private function make_update()
+    {
+        $this->update(...func_get_args());
     }
 
     /**
@@ -595,8 +728,7 @@ class Tools
         ];
 
         $this->pdo = new PDO(
-            "mysql:host=$host;port=$port;dbname=" .
-            $database,
+            "mysql:host=$host;port=$port;dbname=" . $database,
             $user,
             $password,
             $options
@@ -644,15 +776,15 @@ class Tools
     /**
      * @return PDO
      */
-    public function getPdo()
+    public function getPdo(): PDO
     {
         return $this->pdo;
     }
 
     /**
-     * @return \Octo\Orm
+     * @return Orm
      */
-    public function getOrm()
+    public function getOrm(): Orm
     {
         return $this->orm;
     }

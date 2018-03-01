@@ -1,7 +1,10 @@
 <?php
 namespace App;
 
+use function appenv;
 use Geocoder\Geocoder;
+use function is_null;
+use Octo\App;
 use Octo\Cache;
 use Octo\Caching;
 use Octo\Fast;
@@ -19,8 +22,10 @@ use Octo\FastSessionInterface;
 use Octo\Framework;
 use Octo\Live;
 use Octo\Orm;
+use Octo\Sender;
 use Octo\Session;
 use PDO;
+use function Octo\appenv as getConfEnv;
 use function Octo\sessionKey;
 
 class Bootstrap
@@ -60,14 +65,23 @@ class Bootstrap
         $this->app->render($response);
     }
 
-    public function cli(Fast $app)
+    /**
+     * @param null|Fast $app
+     * @return Fast
+     */
+    public function cli(?Fast $app = null): Fast
     {
+        /** @var Fast $app */
+        $app = is_null($app) ? App::create() : $app;
+
         $this->app = $app;
 
         $this
             ->config()
             ->register()
         ;
+
+        return $app;
     }
 
     /**
@@ -91,15 +105,22 @@ class Bootstrap
      */
     private function register()
     {
+        $transport = getConfEnv('MAILER_DRIVER', 'smtp');
+        (new Sender())
+            ->setHost(getConfEnv('SMTP_HOST', 'localhost'))
+            ->setPort(getConfEnv('SMTP_PORT', 25))
+            ->{$transport}();
+
         $this->app
-            ->set(Orm::class, function () {
+            ->set(Orm::class, function () {dd('ici');
                 $pdo = $this->get('pdo');
 
                 if (!$pdo instanceof PDO) {
-                    $host       = getenv('MYSQL_HOST');
-                    $port       = getenv('MYSQL_PORT');
-                    $database   = getenv('MYSQL_DATABASE');
-                    $password   = getenv('MYSQL_ROOT_PASSWORD');
+                    $host       = getConfEnv('DATABASE_HOST');
+                    $port       = getConfEnv('DATABASE_PORT');
+                    $user       = getConfEnv('DATABASE_USER');
+                    $database   = getConfEnv('DATABASE_NAME');
+                    $password   = getConfEnv('DATABASE_PASSWORD');
 
                     $options = [
                         PDO::ATTR_CASE                 => PDO::CASE_NATURAL,
@@ -113,7 +134,7 @@ class Bootstrap
                     $pdo = new PDO(
                         "mysql:host={$host};port={$port};dbname=" .
                         $database,
-                        'root',
+                        $user,
                         $password,
                         $options
                     );
