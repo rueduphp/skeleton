@@ -26,6 +26,7 @@ use Octo\Sender;
 use Octo\Session;
 use PDO;
 use function Octo\appenv as getConfEnv;
+use function Octo\fmr;
 use function Octo\sessionKey;
 
 class Bootstrap
@@ -51,7 +52,9 @@ class Bootstrap
     public function __invoke(Fast $app)
     {
         $this->app = $app;
-        $this->session = new Live(new Caching(sessionKey()));
+        $this->session = new Live(fmr(sessionKey()));
+        $this->session->get('truc');
+//        $this->session = new Live(new Caching(sessionKey()));
 
         $response = $this
             ->config()

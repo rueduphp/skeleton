@@ -99,7 +99,32 @@ class Tools
         $this->path_migrations = $path . '/migrations';
         $this->path_seeds = $path . '/seeds';
 
-        $this->setup();
+        $this->run($args);
+    }
+
+    private function setupDb()
+    {
+        $host       = appenv('DATABASE_HOST');
+        $port       = appenv('DATABASE_PORT');
+        $user       = appenv('DATABASE_USER');
+        $database   = appenv('DATABASE_NAME');
+        $password   = appenv('DATABASE_PASSWORD');
+
+        $options = [
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+        ];
+
+        $this->pdo = new PDO(
+            "mysql:host=$host;port=$port;dbname=" . $database,
+            $user,
+            $password,
+            $options
+        );
+
+        $this->orm = new Octo\Orm($this->pdo);
+
+        $this->schema = $this->orm->schema();
 
         if (!$this->hasTable($this->table_migrations)) {
             $this->createRepository();
@@ -108,8 +133,6 @@ class Tools
         if (!$this->hasTable($this->table_seeds)) {
             $this->createRepositorySeeder();
         }
-
-        $this->run($args);
     }
 
     /**
@@ -135,6 +158,8 @@ class Tools
 
     private function caching()
     {
+        $this->setupDb();
+
         if (!$this->hasTable('caching')) {
             $this->getSchema()->create('caching', function (Blueprint $table) {
                 $table->string('k')->primary()->unique();
@@ -159,6 +184,8 @@ class Tools
 
     private function drop()
     {
+        $this->setupDb();
+
         $tables = $this->query("SHOW TABLES")->fetchAll();
 
         foreach ($tables as $row) {
@@ -291,6 +318,8 @@ class Tools
 
     private function init_sql_cache()
     {
+        $this->setupDb();
+
         if (!$this->hasTable('data_cache')) {
             $sql = "CREATE TABLE IF NOT EXISTS `data_cache` (
   `k` varchar(255) NOT NULL,
@@ -392,7 +421,6 @@ class Tools
             Octo\File::mkdir(__DIR__ . '/app/Model');
         }
 
-
         $file = __DIR__ . '/app/Model/'  . $class . '.php';
 
         if (!file_exists($file)) {
@@ -457,6 +485,8 @@ class Tools
      */
     private function rollback()
     {
+        $this->setupDb();
+
         $query = "SELECT batch FROM {$this->table_migrations} ORDER BY batch DESC LIMIT 1";
         $batch = $this->query($query)->fetchColumn();
         $files = glob($this->getPathMigrations() . DS . "*{$batch}*.php");
@@ -489,6 +519,8 @@ class Tools
 
     private function unseed()
     {
+        $this->setupDb();
+
         $query = "SELECT batch FROM {$this->table_seeds} ORDER BY batch DESC LIMIT 1";
         $batch = $this->query($query)->fetchColumn();
         $files = glob($this->getPathSeeds() . DS . "*{$batch}*.php");
@@ -524,8 +556,13 @@ class Tools
         Octo\Cli::show($msg, $type);
     }
 
+    /**
+     * @throws ReflectionException
+     */
     private function migrate()
     {
+        $this->setupDb();
+
         $files = glob($this->getPathMigrations() . DS . "*.php");
 
         if (empty($files)) {
@@ -569,6 +606,8 @@ class Tools
      */
     private function seed()
     {
+        $this->setupDb();
+
         $files = glob($this->getPathSeeds() . DS . "*.php");
 
         if (empty($files)) {
@@ -716,28 +755,6 @@ class Tools
      */
     private function setup()
     {
-        $host       = appenv('DATABASE_HOST');
-        $port       = appenv('DATABASE_PORT');
-        $user       = appenv('DATABASE_USER');
-        $database   = appenv('DATABASE_NAME');
-        $password   = appenv('DATABASE_PASSWORD');
-
-        $options = [
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-        ];
-
-        $this->pdo = new PDO(
-            "mysql:host=$host;port=$port;dbname=" . $database,
-            $user,
-            $password,
-            $options
-        );
-
-        $this->orm = new Octo\Orm($this->pdo);
-
-        $this->schema = $this->orm->schema();
-
         $cache_path = str_replace('##base_path##', path('base'), appenv('CACHE_PATH'));
 
         Octo\Config::set('dir.cache', $cache_path);
