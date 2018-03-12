@@ -20,7 +20,7 @@ ini_set('display_errors', true);
 $ini = parse_ini_file(realpath(__DIR__) . '/.env');
 
 defined('APPLICATION_ENV') || define('APPLICATION_ENV', isset($ini['APPLICATION_ENV']) ? $ini['APPLICATION_ENV'] : 'production');
-defined('SITE_NAME') || define('SITE_NAME', isset($ini['SITE_NAME']) ? $ini['SITE_NAME']         : 'project');
+defined('SITE_NAME') || define('SITE_NAME', isset($ini['SITE_NAME']) ? $ini['SITE_NAME'] : 'project');
 
 require_once realpath(__DIR__) . '/vendor/autoload.php';
 
@@ -154,6 +154,27 @@ class Tools
     private function make_caching()
     {
         $this->caching();
+    }
+
+    private function make_notification_table()
+    {
+        $this->setupDb();
+
+        if (!$this->hasTable('notification')) {
+            $this->getSchema()->create('notification', function (Blueprint $table) {
+                $table->uuid('id')->primary();
+                $table->string('type');
+                $table->morphs('notifiable');
+                $table->text('data');
+                $table->timestamp('read_at')->nullable();
+                $table->timestamp('created_at')->nullable()->useCurrent();
+                $table->timestamp('updated_at')->nullable()->useCurrent();
+            });
+
+            $this->show("Notification table has been created.");
+        } else {
+            $this->show("Notification table ever exists.", 'ERROR');
+        }
     }
 
     private function caching()
